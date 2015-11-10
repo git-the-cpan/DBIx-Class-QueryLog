@@ -1,14 +1,20 @@
 #!perl
+
 use strict;
 use warnings;
-use Test::More tests => 9;
+
+use Test::More;
 
 use DBIx::Class::QueryLog;
 use DBIx::Class::QueryLog::Analyzer;
 use DBIx::Class::QueryLog::Query;
 use DBIx::Class::QueryLog::Transaction;
 
-my $ql = DBIx::Class::QueryLog->new;
+my $time = 0;
+
+my $ql = DBIx::Class::QueryLog->new(
+    __time => sub { $time },
+);
 $ql->query_start('SELECT * from foo', 'fast');
 $ql->query_end('SELECT * from foo', 'fast');
 
@@ -16,12 +22,12 @@ $ql->query_start('SELECT * from foo2', 'fast');
 $ql->query_end('SELECT * from foo2', 'fast');
 
 $ql->query_start('SELECT * from foo', 'slow');
-sleep(3);
+$time += 3;
 $ql->query_end('SELECT * from foo', 'slow');
 
 $ql->txn_begin;
 $ql->query_start('SELECT * from foo', 'medium');
-sleep(2);
+$time += 2;
 $ql->query_end('SELECT * from foo', 'medium');
 $ql->txn_commit;
 
@@ -42,3 +48,5 @@ cmp_ok(scalar(@{ $fast }), '==', 3, '3 executions found');
 cmp_ok($fast->[2]->params->[0], 'eq', 'slow', 'fast executions 2');
 cmp_ok($fast->[1]->params->[0], 'eq', 'medium', 'fast executions 1');
 cmp_ok($fast->[0]->params->[0], 'eq', 'fast', 'fast executions 0');
+
+done_testing;

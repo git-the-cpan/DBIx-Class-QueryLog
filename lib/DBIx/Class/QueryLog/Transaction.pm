@@ -1,32 +1,71 @@
 package DBIx::Class::QueryLog::Transaction;
-use Moose;
+$DBIx::Class::QueryLog::Transaction::VERSION = '1.004000';
+# ABSTRACT: A Transaction
+
+use Moo;
+use Types::Standard qw( Bool ArrayRef );
 
 extends 'DBIx::Class::QueryLog::Query';
 
 has committed => (
     is => 'rw',
-    isa => 'Bool'
+    isa => Bool
 );
 
 has queries => (
     traits => [qw(Array)],
     is => 'rw',
-    isa => 'ArrayRef',
+    isa => ArrayRef,
     default => sub { [] },
-    handles => {
-        count => 'count',
-        add_to_queries => 'push'
-    }
 );
+
+sub add_to_queries { push @{shift->queries}, @_ }
+sub count { scalar @{shift->log} }
 
 has rolledback => (
     is => 'rw',
-    isa => 'Bool'
+    isa => Bool
 );
+
+sub time_elapsed {
+    my $self = shift;
+
+    my $total = 0;
+    foreach my $q (@{ $self->queries }) {
+        $total += $q->time_elapsed;
+    }
+
+    return $total;
+}
+
+sub get_sorted_queries {
+    my ($self, $sql) = @_;
+
+    my @qs;
+    if($sql) {
+        @qs = grep({ $_->sql eq $sql } @{ $self->queries });
+    } else {
+        @qs = @{ $self->queries };
+    }
+
+    return [ reverse sort { $a->time_elapsed <=> $b->time_elapsed } @qs ];
+}
+
+1;
+
+__END__
+
+=pod
+
+=encoding UTF-8
 
 =head1 NAME
 
 DBIx::Class::QueryLog::Transaction - A Transaction
+
+=head1 VERSION
+
+version 1.004000
 
 =head1 SYNOPSIS
 
@@ -68,18 +107,6 @@ Time this transaction ended.
 
 Time this transaction took to execute.  start - end.
 
-=cut
-sub time_elapsed {
-	my $self = shift;
-
-	my $total = 0;
-	foreach my $q (@{ $self->queries }) {
-		$total += $q->time_elapsed;
-	}
-
-	return $total;
-}
-
 =head2 add_to_queries
 
 Add the provided query to this transactions list.
@@ -96,35 +123,25 @@ Returns all the queries in this Transaction, sorted by elapsed time.
 If given an argument of an SQL statement, only queries matching that statement
 will be considered.
 
-=cut
-sub get_sorted_queries {
-    my ($self, $sql) = @_;
+=head1 AUTHORS
 
-    my @qs;
-    if($sql) {
-        @qs = grep({ $_->sql eq $sql } @{ $self->queries });
-    } else {
-        @qs = @{ $self->queries };
-    }
+=over 4
 
-    return [ reverse sort { $a->time_elapsed <=> $b->time_elapsed } @qs ];
-}
+=item *
 
-=head1 AUTHOR
+Arthur Axel "fREW" Schmidt <frioux+cpan@gmail.com>
 
-Cory G Watson, C<< <gphat at cpan.org> >>
+=item *
 
-=head1 ACKNOWLEDGEMENTS
+Cory G Watson <gphat at cpan.org>
 
-=head1 COPYRIGHT & LICENSE
+=back
 
-Copyright 2009 Cory G Watson, all rights reserved.
+=head1 COPYRIGHT AND LICENSE
 
-This program is free software; you can redistribute it and/or modify it
-under the same terms as Perl itself.
+This software is copyright (c) 2015 by Cory G Watson <gphat at cpan.org>.
+
+This is free software; you can redistribute it and/or modify it under
+the same terms as the Perl 5 programming language system itself.
 
 =cut
-
-__PACKAGE__->meta->make_immutable;
-
-1;

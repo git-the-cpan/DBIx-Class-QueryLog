@@ -1,49 +1,115 @@
-DBIx-Class-QueryLog
+SYNOPSIS
 
-The README is used to introduce the module and provide instructions on
-how to install the module, any machine dependencies it may have (for
-example C compilers and installed libraries) and any other information
-that should be provided before the module is installed.
+    DBIx::Class::QueryLog 'logs' each transaction and query executed so you
+    can analyze what happened in the 'session'. It must be installed as the
+    debugobj in DBIx::Class:
 
-A README file is required for CPAN modules since CPAN extracts the README
-file from a module distribution so that people browsing the archive
-can use it get an idea of the modules uses. It is usually a good idea
-to provide version information here so that people can decide whether
-fixes for the module are worth downloading.
+        use DBIx::Class::QueryLog;
+        use DBIx::Class::QueryLog::Analyzer;
+    
+        my $schema = ... # Get your schema!
+        my $ql = DBIx::Class::QueryLog->new;
+        $schema->storage->debugobj($ql);
+        $schema->storage->debug(1);
+          ... # do some stuff!
+        my $ana = DBIx::Class::QueryLog::Analyzer->new({ querylog => $ql });
+        my @queries = $ana->get_sorted_queries;
 
-INSTALLATION
+    Every transaction and query executed will have a corresponding
+    Transaction and Query object stored in order of execution, like so:
 
-To install this module, run the following commands:
+        Query
+        Query
+        Transaction
+        Query
 
-    perl Makefile.PL
-    make
-    make test
-    make install
+    This array can be retrieved with the log method. Queries executed
+    inside a transaction are stored inside their Transaction object, not
+    inside the QueryLog directly.
 
+    See DBIx::Class::QueryLog::Analyzer for options on digesting the
+    results of a QueryLog session.
 
-SUPPORT AND DOCUMENTATION
+    If you wish to have the QueryLog collecting results, and the normal
+    trace output of SQL queries from DBIx::Class, then set passthrough to 1
 
-After installing, you can find documentation for this module with the perldoc command.
+      $ql->passthrough(1);
 
-    perldoc DBIx::Class::QueryLog
+BUCKETS
 
-You can also look for information at:
+    Sometimes you want to break your analysis down into stages. To
+    segregate the queries and transactions, simply set the bucket and run
+    some queries:
 
-    Search CPAN
-        http://search.cpan.org/dist/DBIx-Class-QueryLog
+      $ql->bucket('selects');
+      $schema->resultset('Foo')->find(..);
+      # Some queries
+      $ql->bucket('updates');
+      $foo->update({ name => 'Gorch' });
+      $ql->bucket('something else);
+      ...
 
-    CPAN Request Tracker:
-        http://rt.cpan.org/NoAuth/Bugs.html?Dist=DBIx-Class-QueryLog
+    Any time a query or transaction is completed the QueryLog's current
+    bucket will be copied into it so that the Analyzer can later use it.
+    See the get_totaled_queries method and it's optional parameter.
 
-    AnnoCPAN, annotated CPAN documentation:
-        http://annocpan.org/dist/DBIx-Class-QueryLog
+METHODS
 
-    CPAN Ratings:
-        http://cpanratings.perl.org/d/DBIx-Class-QueryLog
+ new
 
-COPYRIGHT AND LICENCE
+    Create a new DBIx::Class::QueryLog.
 
-Copyright (C) 2009 Cory G Watson
+ bucket
 
-This program is free software; you can redistribute it and/or modify it
-under the same terms as Perl itself.
+    Set the current bucket for this QueryLog. This bucket will be copied to
+    any transactions or queries that finish.
+
+ time_elapsed
+
+    Returns the total time elapsed for ALL transactions and queries in this
+    log.
+
+ count
+
+    Returns the number of queries executed in this QueryLog
+
+ reset
+
+    Reset this QueryLog by removing all transcations and queries.
+
+ add_to_log
+
+    Add this provided Transaction or Query to the log.
+
+ txn_begin
+
+    Called by DBIx::Class when a transaction is begun.
+
+ txn_commit
+
+    Called by DBIx::Class when a transaction is committed.
+
+ txn_rollback
+
+    Called by DBIx::Class when a transaction is rolled back.
+
+ query_start
+
+    Called by DBIx::Class when a query is begun.
+
+ query_end
+
+    Called by DBIx::Class when a query is completed.
+
+ query_class
+
+    Returns the name of the class to use for storing queries, by default
+    DBIx::Class::QueryLog::Query. If you subclass DBIx::Class::QueryLog,
+    you may wish to override this. Whatever you override it to must be a
+    subclass of DBIx::Class::QueryLog::Query.
+
+ transaction_class
+
+    As query_class but for the class for storing transactions. Defaults to
+    DBIx::Class::QueryLog::Transaction.
+

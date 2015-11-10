@@ -1,38 +1,48 @@
 package DBIx::Class::QueryLog;
-use Moose;
+$DBIx::Class::QueryLog::VERSION = '1.004000';
+# ABSTRACT: Log queries for later analysis.
+
+use Moo;
+use Types::Standard qw( Str Maybe ArrayRef Bool InstanceOf );
 
 has bucket => (
     is => 'rw',
-    isa => 'Str',
+    isa => Str,
     default => sub { 'default' }
 );
 
 has current_query => (
     is => 'rw',
-    isa => 'Maybe[DBIx::Class::QueryLog::Query]'
+    isa => Maybe[InstanceOf['DBIx::Class::QueryLog::Query']]
 );
 
 has current_transaction => (
     is => 'rw',
-    isa => 'Maybe[DBIx::Class::QueryLog::Transaction]'
+    isa => Maybe[InstanceOf['DBIx::Class::QueryLog::Transaction']]
 );
 
 has log => (
     traits => [qw(Array)],
     is => 'rw',
-    isa => 'ArrayRef',
+    isa => ArrayRef,
     default => sub { [] },
-    handles => {
-        add_to_log => 'push',
-        reset => 'clear'
-    }
 );
+
+sub add_to_log { push @{shift->log}, @_ }
+sub reset { shift->log([]) }
 
 has passthrough => (
     is => 'rw',
-    isa => 'Bool',
+    isa => Bool,
     default => 0
 );
+
+has __time => (
+    is => 'ro',
+    default => sub { \&Time::HiRes::time },
+);
+
+sub _time { shift->__time->() }
 
 before 'add_to_log' => sub {
     my ($self, $thing) = @_;
@@ -47,13 +57,130 @@ use Time::HiRes;
 use DBIx::Class::QueryLog::Query;
 use DBIx::Class::QueryLog::Transaction;
 
+sub time_elapsed {
+    my $self = shift;
+
+    my $total = 0;
+    foreach my $t (@{ $self->log }) {
+        $total += $t->time_elapsed;
+    }
+
+    return $total;
+}
+
+sub count {
+    my $self = shift;
+
+    my $total = 0;
+    foreach my $t (@{ $self->log }) {
+        $total += $t->count;
+    }
+
+    return $total;
+}
+
+
+sub txn_begin {
+    my $self = shift;
+
+    $self->next::method(@_) if $self->passthrough;
+    $self->current_transaction(
+        $self->transaction_class()->new({
+            start_time => $self->_time,
+        })
+    );
+}
+
+
+sub txn_commit {
+    my $self = shift;
+
+    $self->next::method(@_) if $self->passthrough;
+    if(defined($self->current_transaction)) {
+        my $txn = $self->current_transaction;
+        $txn->end_time($self->_time);
+        $txn->committed(1);
+        $txn->rolledback(0);
+        $self->add_to_log($txn);
+        $self->current_transaction(undef);
+    } else {
+        warn('Unknown transaction committed.')
+    }
+}
+
+
+sub txn_rollback {
+    my $self = shift;
+
+    $self->next::method(@_) if $self->passthrough;
+    if(defined($self->current_transaction)) {
+        my $txn = $self->current_transaction;
+        $txn->end_time($self->_time);
+        $txn->committed(0);
+        $txn->rolledback(1);
+        $self->add_to_log($txn);
+        $self->current_transaction(undef);
+    } else {
+        warn('Unknown transaction committed.')
+    }
+}
+
+
+sub query_start {
+    my $self = shift;
+    my $sql = shift;
+    my @params = @_;
+
+    $self->next::method($sql, @params) if $self->passthrough;
+    $self->current_query(
+        $self->query_class()->new({
+            start_time  => $self->_time,
+            sql         => $sql,
+            params      => \@params,
+        })
+    );
+}
+
+
+sub query_end {
+    my $self = shift;
+
+    $self->next::method(@_) if $self->passthrough;
+    if(defined($self->current_query)) {
+        my $q = $self->current_query;
+        $q->end_time($self->_time);
+        $q->bucket($self->bucket);
+        if(defined($self->current_transaction)) {
+            $self->current_transaction->add_to_queries($q);
+        } else {
+            $self->add_to_log($q)
+        }
+        $self->current_query(undef);
+    } else {
+        warn('Completed unknown query.');
+    }
+}
+
+
+sub query_class       { 'DBIx::Class::QueryLog::Query' }
+
+sub transaction_class { 'DBIx::Class::QueryLog::Transaction' }
+
+1;
+
+__END__
+
+=pod
+
+=encoding UTF-8
+
 =head1 NAME
 
 DBIx::Class::QueryLog - Log queries for later analysis.
 
-=cut
+=head1 VERSION
 
-our $VERSION = '1.3.3';
+version 1.004000
 
 =head1 SYNOPSIS
 
@@ -63,7 +190,7 @@ in DBIx::Class:
 
     use DBIx::Class::QueryLog;
     use DBIx::Class::QueryLog::Analyzer;
-    
+
     my $schema = ... # Get your schema!
     my $ql = DBIx::Class::QueryLog->new;
     $schema->storage->debugobj($ql);
@@ -124,33 +251,9 @@ transactions or queries that finish.
 
 Returns the total time elapsed for ALL transactions and queries in this log.
 
-=cut
-sub time_elapsed {
-    my $self = shift;
-
-    my $total = 0;
-    foreach my $t (@{ $self->log }) {
-        $total += $t->time_elapsed;
-    }
-
-    return $total;
-}
-
 =head2 count
 
 Returns the number of queries executed in this QueryLog
-
-=cut
-sub count {
-    my $self = shift;
-
-    my $total = 0;
-    foreach my $t (@{ $self->log }) {
-        $total += $t->count;
-    }
-
-    return $total;
-}
 
 =head2 reset
 
@@ -164,108 +267,21 @@ Add this provided Transaction or Query to the log.
 
 Called by DBIx::Class when a transaction is begun.
 
-=cut
-
-sub txn_begin {
-    my $self = shift;
-
-    $self->next::method(@_) if $self->passthrough;
-    $self->current_transaction(
-        $self->transaction_class()->new({
-            start_time => Time::HiRes::time
-        })
-    );
-}
-
 =head2 txn_commit
 
 Called by DBIx::Class when a transaction is committed.
-
-=cut
-
-sub txn_commit {
-    my $self = shift;
-
-    $self->next::method(@_) if $self->passthrough;
-    if(defined($self->current_transaction)) {
-        my $txn = $self->current_transaction;
-        $txn->end_time(Time::HiRes::time);
-        $txn->committed(1);
-        $txn->rolledback(0);
-        $self->add_to_log($txn);
-        $self->current_transaction(undef);
-    } else {
-        warn('Unknown transaction committed.')
-    }
-}
 
 =head2 txn_rollback
 
 Called by DBIx::Class when a transaction is rolled back.
 
-=cut
-
-sub txn_rollback {
-    my $self = shift;
-
-    $self->next::method(@_) if $self->passthrough;
-    if(defined($self->current_transaction)) {
-        my $txn = $self->current_transaction;
-        $txn->end_time(Time::HiRes::time);
-        $txn->committed(0);
-        $txn->rolledback(1);
-        $self->add_to_log($txn);
-        $self->current_transaction(undef);
-    } else {
-        warn('Unknown transaction committed.')
-    }
-}
-
 =head2 query_start
 
 Called by DBIx::Class when a query is begun.
 
-=cut
-
-sub query_start {
-    my $self = shift;
-    my $sql = shift;
-    my @params = @_;
-
-    $self->next::method($sql, @params) if $self->passthrough;
-    $self->current_query(
-        $self->query_class()->new({
-            start_time  => Time::HiRes::time,
-            sql         => $sql,
-            params      => \@params,
-        })
-    );
-}
-
 =head2 query_end
 
 Called by DBIx::Class when a query is completed.
-
-=cut
-
-sub query_end {
-    my $self = shift;
-
-    $self->next::method(@_) if $self->passthrough;
-    if(defined($self->current_query)) {
-        my $q = $self->current_query;
-        $q->end_time(Time::HiRes::time);
-        $q->bucket($self->bucket);
-        if(defined($self->current_transaction)) {
-            $self->current_transaction->add_to_queries($q);
-        } else {
-            $self->add_to_log($q)
-        }
-        $self->current_query(undef);
-    } else {
-        warn('Completed unknown query.');
-    }
-}
 
 =head2 query_class
 
@@ -279,25 +295,25 @@ subclass of DBIx::Class::QueryLog::Query.
 As query_class but for the class for storing transactions.  Defaults to
 C<DBIx::Class::QueryLog::Transaction>.
 
+=head1 AUTHORS
+
+=over 4
+
+=item *
+
+Arthur Axel "fREW" Schmidt <frioux+cpan@gmail.com>
+
+=item *
+
+Cory G Watson <gphat at cpan.org>
+
+=back
+
+=head1 COPYRIGHT AND LICENSE
+
+This software is copyright (c) 2015 by Cory G Watson <gphat at cpan.org>.
+
+This is free software; you can redistribute it and/or modify it under
+the same terms as the Perl 5 programming language system itself.
+
 =cut
-
-sub query_class       { 'DBIx::Class::QueryLog::Query' }
-
-sub transaction_class { 'DBIx::Class::QueryLog::Transaction' }
-
-=head1 AUTHOR
-
-Cory G Watson, C<< <gphat at cpan.org> >>
-
-with some contributions from David Cantrell
-
-=head1 COPYRIGHT & LICENSE
-
-Copyright 2009 Cory G Watson, all rights reserved.
-
-This program is free software; you can redistribute it and/or modify it
-under the same terms as Perl itself.
-
-=cut
-
-1;

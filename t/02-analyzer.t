@@ -1,16 +1,18 @@
-#!perl -T
+#!perl
 
 use strict;
 use warnings;
-use Test::More tests => 14;
 
-BEGIN {
-    use_ok('DBIx::Class::QueryLog');
-    use_ok('DBIx::Class::QueryLog::Analyzer');
-}
-require_ok('DBIx::Class::QueryLog::Analyzer');
+use Test::More;
 
-my $ql = DBIx::Class::QueryLog->new;
+use DBIx::Class::QueryLog;
+use DBIx::Class::QueryLog::Analyzer;
+
+my $time = 0;
+
+my $ql = DBIx::Class::QueryLog->new(
+    __time => sub { $time },
+);
 ok($ql->isa('DBIx::Class::QueryLog'), 'new');
 
 $ql->query_start('SELECT * from foo');
@@ -22,7 +24,7 @@ $ql->query_start('SELECT * from foo');
 $ql->query_end('SELECT * from foo');
 
 $ql->query_start('SELECT * from bar');
-sleep(1);
+$time += 1;
 $ql->query_end('SELECT * from bar');
 
 $ql->txn_commit;
@@ -48,3 +50,5 @@ cmp_ok($analyzed->{$keys[1]}->{'count'}, '==', 2, '2 executions');
 ok($analyzed->{$keys[0]}->{'time_elapsed'}, 'Total time');
 cmp_ok(scalar(@{$analyzed->{$keys[0]}->{'queries'}}), '==', 1, '1 stored queries');
 cmp_ok(scalar(@{$analyzed->{$keys[1]}->{'queries'}}), '==', 2, '2 stored queries');
+
+done_testing;
