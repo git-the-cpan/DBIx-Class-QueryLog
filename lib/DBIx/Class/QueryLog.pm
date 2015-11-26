@@ -1,5 +1,5 @@
 package DBIx::Class::QueryLog;
-$DBIx::Class::QueryLog::VERSION = '1.004000';
+$DBIx::Class::QueryLog::VERSION = '1.004001';
 # ABSTRACT: Log queries for later analysis.
 
 use Moo;
@@ -180,7 +180,7 @@ DBIx::Class::QueryLog - Log queries for later analysis.
 
 =head1 VERSION
 
-version 1.004000
+version 1.004001
 
 =head1 SYNOPSIS
 

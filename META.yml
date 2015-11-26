@@ -23,4 +23,4 @@ resources:
   bugtracker: https://github.com/frioux/DBIx-Class-QueryLog/issues
   homepage: https://github.com/frioux/DBIx-Class-QueryLog
   repository: https://github.com/frioux/DBIx-Class-QueryLog.git
-version: '1.004000'
+version: '1.004001'

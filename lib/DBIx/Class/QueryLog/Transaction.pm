@@ -1,5 +1,5 @@
 package DBIx::Class::QueryLog::Transaction;
-$DBIx::Class::QueryLog::Transaction::VERSION = '1.004000';
+$DBIx::Class::QueryLog::Transaction::VERSION = '1.004001';
 # ABSTRACT: A Transaction
 
 use Moo;
@@ -20,7 +20,7 @@ has queries => (
 );
 
 sub add_to_queries { push @{shift->queries}, @_ }
-sub count { scalar @{shift->log} }
+sub count { scalar @{shift->queries} }
 
 has rolledback => (
     is => 'rw',
@@ -65,7 +65,7 @@ DBIx::Class::QueryLog::Transaction - A Transaction
 
 =head1 VERSION
 
-version 1.004000
+version 1.004001
 
 =head1 SYNOPSIS
 
