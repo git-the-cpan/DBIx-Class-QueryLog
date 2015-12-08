@@ -1,5 +1,5 @@
 package DBIx::Class::QueryLog;
-$DBIx::Class::QueryLog::VERSION = '1.004001';
+$DBIx::Class::QueryLog::VERSION = '1.005000';
 # ABSTRACT: Log queries for later analysis.
 
 use Moo;
@@ -166,6 +166,7 @@ sub query_class       { 'DBIx::Class::QueryLog::Query' }
 
 sub transaction_class { 'DBIx::Class::QueryLog::Transaction' }
 
+
 1;
 
 __END__
@@ -180,7 +181,7 @@ DBIx::Class::QueryLog - Log queries for later analysis.
 
 =head1 VERSION
 
-version 1.004001
+version 1.005000
 
 =head1 SYNOPSIS
 
@@ -188,11 +189,13 @@ DBIx::Class::QueryLog 'logs' each transaction and query executed so you can
 analyze what happened in the 'session'.  It must be installed as the debugobj
 in DBIx::Class:
 
-    use DBIx::Class::QueryLog;
+    use DBIx::Class::QueryLog::NotifyOnMax;
     use DBIx::Class::QueryLog::Analyzer;
 
     my $schema = ... # Get your schema!
-    my $ql = DBIx::Class::QueryLog->new;
+    my $ql = DBIx::Class::QueryLog::NotifyOnMax->new(
+        max_count => 100,
+    );
     $schema->storage->debugobj($ql);
     $schema->storage->debug(1);
       ... # do some stuff!
@@ -218,6 +221,10 @@ If you wish to have the QueryLog collecting results, and the normal trace
 output of SQL queries from DBIx::Class, then set C<passthrough> to 1
 
   $ql->passthrough(1);
+
+Note that above the example uses L<DBIx::Class::QueryLog::NotifyOnMax> instead
+of the vanilla C<DBIx::Class::QueryLog>, this is simply to encourage users to
+use that and hopefully avoid leaks.
 
 =head1 BUCKETS
 
@@ -294,6 +301,18 @@ subclass of DBIx::Class::QueryLog::Query.
 
 As query_class but for the class for storing transactions.  Defaults to
 C<DBIx::Class::QueryLog::Transaction>.
+
+=head2 SEE ALSO
+
+=over
+
+=item * L<DBIx::Class::QueryLog::NotifyOnMax>
+
+=item * L<DBIx::Class::QueryLog::Tee>
+
+=item * L<DBIx::Class::QueryLog::Conditional>
+
+=back
 
 =head1 AUTHORS
 

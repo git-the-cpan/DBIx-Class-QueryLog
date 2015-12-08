@@ -10,11 +10,13 @@ cpanfile
 dist.ini
 lib/DBIx/Class/QueryLog.pm
 lib/DBIx/Class/QueryLog/Analyzer.pm
+lib/DBIx/Class/QueryLog/NotifyOnMax.pm
 lib/DBIx/Class/QueryLog/Query.pm
 lib/DBIx/Class/QueryLog/Transaction.pm
-t/01-quickies.t
-t/02-analyzer.t
-t/03-buckets.t
-t/04-fastslow.t
+t/analyzer.t
+t/buckets.t
+t/fastslow.t
+t/notify-on-max.t
+t/quickies.t
 t/release-changes_has_content.t
 t/release-pod-syntax.t

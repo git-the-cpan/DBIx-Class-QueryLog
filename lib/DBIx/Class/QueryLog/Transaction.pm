@@ -1,5 +1,5 @@
 package DBIx::Class::QueryLog::Transaction;
-$DBIx::Class::QueryLog::Transaction::VERSION = '1.004001';
+$DBIx::Class::QueryLog::Transaction::VERSION = '1.005000';
 # ABSTRACT: A Transaction
 
 use Moo;
@@ -65,7 +65,7 @@ DBIx::Class::QueryLog::Transaction - A Transaction
 
 =head1 VERSION
 
-version 1.004001
+version 1.005000
 
 =head1 SYNOPSIS
 

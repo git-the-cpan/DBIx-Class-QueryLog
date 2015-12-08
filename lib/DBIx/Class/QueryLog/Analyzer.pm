@@ -1,5 +1,5 @@
 package DBIx::Class::QueryLog::Analyzer;
-$DBIx::Class::QueryLog::Analyzer::VERSION = '1.004001';
+$DBIx::Class::QueryLog::Analyzer::VERSION = '1.005000';
 # ABSTRACT: Query Analysis
 
 use Moo;
@@ -88,7 +88,7 @@ DBIx::Class::QueryLog::Analyzer - Query Analysis
 
 =head1 VERSION
 
-version 1.004001
+version 1.005000
 
 =head1 SYNOPSIS
 

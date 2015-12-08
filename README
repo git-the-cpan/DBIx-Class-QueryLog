@@ -4,11 +4,13 @@ SYNOPSIS
     can analyze what happened in the 'session'. It must be installed as the
     debugobj in DBIx::Class:
 
-        use DBIx::Class::QueryLog;
+        use DBIx::Class::QueryLog::NotifyOnMax;
         use DBIx::Class::QueryLog::Analyzer;
     
         my $schema = ... # Get your schema!
-        my $ql = DBIx::Class::QueryLog->new;
+        my $ql = DBIx::Class::QueryLog::NotifyOnMax->new(
+            max_count => 100,
+        );
         $schema->storage->debugobj($ql);
         $schema->storage->debug(1);
           ... # do some stuff!
@@ -34,6 +36,10 @@ SYNOPSIS
     trace output of SQL queries from DBIx::Class, then set passthrough to 1
 
       $ql->passthrough(1);
+
+    Note that above the example uses DBIx::Class::QueryLog::NotifyOnMax
+    instead of the vanilla DBIx::Class::QueryLog, this is simply to
+    encourage users to use that and hopefully avoid leaks.
 
 BUCKETS
 
@@ -112,4 +118,12 @@ METHODS
 
     As query_class but for the class for storing transactions. Defaults to
     DBIx::Class::QueryLog::Transaction.
+
+ SEE ALSO
+
+      * DBIx::Class::QueryLog::NotifyOnMax
+
+      * DBIx::Class::QueryLog::Tee
+
+      * DBIx::Class::QueryLog::Conditional
 
