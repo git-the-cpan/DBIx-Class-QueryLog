@@ -1,5 +1,5 @@
 package DBIx::Class::QueryLog::NotifyOnMax;
-$DBIx::Class::QueryLog::NotifyOnMax::VERSION = '1.005000';
+$DBIx::Class::QueryLog::NotifyOnMax::VERSION = '1.005001';
 use Moo;
 
 extends 'DBIx::Class::QueryLog';
@@ -38,7 +38,7 @@ sub reset {
 
    $self->next::method(@rest);
 
-   $self->_warned(undef);
+   $self->notified(undef);
 }
 
 1;
@@ -55,7 +55,7 @@ DBIx::Class::QueryLog::NotifyOnMax
 
 =head1 VERSION
 
-version 1.005000
+version 1.005001
 
 =head1 SYNOPSIS
 
